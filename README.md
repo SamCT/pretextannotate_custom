@@ -57,6 +57,15 @@ pretextannotate-build-context \
     --output custom_context.tsv
 ```
 
+You can also build it from an existing FASTA index:
+
+```bash
+pretextannotate-build-context \
+    --fai my_assembly.fa.fai \
+    --mapping molecule_mapping.tsv \
+    --output custom_context.tsv
+```
+
 Then run `pretextannotate` with that file:
 
 ```bash
@@ -69,6 +78,8 @@ pretextannotate \
 ```
 
 Example `molecule_mapping.tsv` (optional):
+
+> Tip: labels are also used for plotting order, so set `molecule_label` values in the exact sequence you want shown on both axes.
 
 ```tsv
 # sequence_name	molecule_label
