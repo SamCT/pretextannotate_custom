@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -243,6 +244,26 @@ def convert_png_to_tif_and_gif(png_path: str, dpi=(300, 300), max_width=None):
     logger.info(f"[Pretext Annotation] Converted {png_path} → {tif_path}, {gif_path}")
     return tif_path, gif_path
 
+def natural_sort_key(value):
+    """Natural sort key that keeps numeric chunks in numeric order."""
+    value_str = str(value)
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", value_str)]
+
+
+def molecule_sort_key(chrom: dict):
+    """Sort chromosomes by molecule label first, with natural fallback on INSDC."""
+    molecule = chrom.get("molecule")
+
+    if isinstance(molecule, int):
+        return (0, molecule, natural_sort_key(chrom.get("INSDC", "")))
+
+    molecule_str = str(molecule)
+    if molecule_str.isdigit():
+        return (0, int(molecule_str), natural_sort_key(chrom.get("INSDC", "")))
+
+    return (1, natural_sort_key(molecule_str), natural_sort_key(chrom.get("INSDC", "")))
+
+
 def compute_chromosomes(prefix: str, chroms: list[dict], exclude: list[str], min_fraction: float) -> list[dict]:
     """
     Figure out the chromosomes we want names in the image,
@@ -256,7 +277,7 @@ def compute_chromosomes(prefix: str, chroms: list[dict], exclude: list[str], min
     ]
     logger.info(f"[compute chromosomes] {len(filtered)} chromosomes to be labelled, removed {len(chroms) - len(filtered)} molecules")
 
-    return sorted(filtered, key=lambda x: x["length"], reverse=True)
+    return sorted(filtered, key=molecule_sort_key)
 
 def choose_font_size(base_size: int, chrom_count: int, max_font_size: int = 90) -> int:
     """
@@ -308,11 +329,36 @@ def compute_positions(sorted_chroms: list[dict], width: int, height: int, total_
 
     return x_positions, y_positions
 
+def _pick_top_label_font(base_font, sorted_chroms, total, width, max_fraction):
+    """Reduce top label font size so more molecule labels fit before using dot fallback."""
+    font_path = getattr(base_font, "path", None)
+    base_size = getattr(base_font, "size", 0)
+    if not font_path or not base_size:
+        return base_font
+
+    target_fonts = [ImageFont.truetype(font_path, size) for size in range(base_size, max(11, base_size // 2) - 1, -2)]
+
+    for candidate in target_fonts:
+        fits_all = True
+        for c in sorted_chroms:
+            label = str(c["molecule"])
+            block = (c["length"] / total) * width
+            text_width = candidate.getbbox(label)[2] - candidate.getbbox(label)[0]
+            if not fits_block(text_width, block, max_fraction):
+                fits_all = False
+                break
+        if fits_all:
+            return candidate
+
+    return target_fonts[-1] if target_fonts else base_font
+
+
 def draw_top_labels_with_positions(draw, font, sorted_chroms, total, left, font_size, text_colour, dot_width, max_fraction, x_positions, width):
     """
     Draw the labels for the top of the image.
     Using the chromosome positions to set top labels (molecule number)
     """
+    label_font = _pick_top_label_font(font, sorted_chroms, total, width, max_fraction)
     y_label = int(font_size * 0.6)
     y_dot = int(font_size * 0.4)
     drawn_boxes = []
@@ -320,7 +366,7 @@ def draw_top_labels_with_positions(draw, font, sorted_chroms, total, left, font_
     for i, c in enumerate(sorted_chroms):
         label = str(c["molecule"])
         block: float = (c["length"] / total) * width
-        bbox = font.getbbox(label)
+        bbox = label_font.getbbox(label)
         text_width: int = bbox[2] - bbox[0]
 
         ok = fits_block(text_width, block, max_fraction)
@@ -331,7 +377,7 @@ def draw_top_labels_with_positions(draw, font, sorted_chroms, total, left, font_
                 ok = False
 
         if ok:
-            draw.text((x_left, y_label), label, font=font, fill=text_colour)
+            draw.text((x_left, y_label), label, font=label_font, fill=text_colour)
             drawn_boxes.append((x_left, x_right))
         else:
             x_dot = left + x_positions[i] - dot_width / 2

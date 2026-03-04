@@ -78,6 +78,36 @@ def parse_mapping(mapping_path: Path) -> dict[str, str]:
     return mapping
 
 
+def parse_fai_lengths(fai_path: Path) -> list[tuple[str, int]]:
+    """Return (sequence_name, sequence_length) from a FASTA index (.fai) file."""
+    records: list[tuple[str, int]] = []
+
+    with open(fai_path, "r", encoding="utf-8") as handle:
+        for line_no, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 2:
+                raise ValueError(
+                    f"Invalid FAI at {fai_path}:{line_no}. Expected at least 2 tab-separated columns, found {len(parts)}"
+                )
+            sequence_name = parts[0]
+            try:
+                sequence_length = int(parts[1])
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid sequence length at {fai_path}:{line_no}. Got: {parts[1]}"
+                ) from exc
+
+            records.append((sequence_name, sequence_length))
+
+    if not records:
+        raise ValueError(f"No sequence entries found in {fai_path}")
+
+    return records
+
+
 def build_context_rows(
     fasta_records: list[tuple[str, int]],
     mapping: dict[str, str] | None = None,
@@ -99,11 +129,17 @@ def write_context(rows: list[tuple[str, int, str]], output_path: Path) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build a custom pretextannotate context file from FASTA or FASTA index (.fai)."
+        description="Build a custom pretextannotate context file from a FASTA or FASTA index (.fai) file."
     )
     input_group = parser.add_mutually_exclusive_group(required=True)
-    input_group.add_argument("--fasta", type=Path, help="Input FASTA file")
-    input_group.add_argument("--fai", type=Path, help="Input FASTA index (.fai) file")
+    input_group.add_argument(
+        "--fasta", type=Path, help="Input FASTA file (uses sequence lengths from sequence lines)"
+    )
+    input_group.add_argument(
+        "--fai",
+        type=Path,
+        help="Input FASTA index (.fai) file (uses sequence lengths from column 2)",
+    )
     parser.add_argument(
         "--mapping",
         type=Path,
@@ -120,9 +156,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    fasta_records = parse_fasta_lengths(args.fasta) if args.fasta else parse_fai_lengths(args.fai)
+    sequence_records = (
+        parse_fasta_lengths(args.fasta) if args.fasta else parse_fai_lengths(args.fai)
+    )
     mapping = parse_mapping(args.mapping) if args.mapping else None
-    rows = build_context_rows(fasta_records, mapping)
+    rows = build_context_rows(sequence_records, mapping)
     write_context(rows, args.output)
 
 
