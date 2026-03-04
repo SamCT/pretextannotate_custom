@@ -9,11 +9,27 @@ logger = logging.getLogger('pretextannotation_logger')
 def parse_sizes(sizes_file: Path) -> list[dict]:
     chrom_counter, chrom_data = int(), list()
 
-    with open(sizes_file, 'r') as in_file:
-        for line in in_file:
-            molecular_name, molecule_length = line.split()
+    with open(sizes_file, 'r', encoding='utf-8') as in_file:
+        for line_no, line in enumerate(in_file, start=1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#'):
+                continue
+
+            parts = stripped.split()
+            if len(parts) < 2:
+                raise ValueError(
+                    f"Invalid sizes/context file format at {sizes_file}:{line_no}. Expected at least 2 columns."
+                )
+
+            molecular_name, molecule_length = parts[0], parts[1]
+            molecule_label = parts[2] if len(parts) >= 3 else None
+
             chrom_counter += 1
-            chrom_data.append({"INSDC": molecular_name, "length": int(molecule_length) / 1e6, "molecule": chrom_counter})
+            chrom_data.append({
+                "INSDC": molecular_name,
+                "length": int(molecule_length) / 1e6,
+                "molecule": molecule_label or chrom_counter,
+            })
 
     return chrom_data
 
