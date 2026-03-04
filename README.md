@@ -57,6 +57,15 @@ pretextannotate-build-context \
     --output custom_context.tsv
 ```
 
+Or build from a FASTA index directly:
+
+```bash
+pretextannotate-build-context \
+    --fai my_assembly.fa.fai \
+    --mapping molecule_mapping.tsv \
+    --output custom_context.tsv
+```
+
 Then run `pretextannotate` with that file:
 
 ```bash
