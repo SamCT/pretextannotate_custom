@@ -46,6 +46,48 @@ pretextannotate \\
     --sizes GCA_965178025.1.sizes
 ```
 
+### Custom context files (no GCA accession required)
+
+If you do not have a `GCA_*` accession yet, you can build a context file directly from your FASTA headers (for example `>H1.chr01`, `>H2.chr01`, ...):
+
+```bash
+pretextannotate-build-context \
+    --fasta my_assembly.fa \
+    --mapping molecule_mapping.tsv \
+    --output custom_context.tsv
+```
+
+Then run `pretextannotate` with that file:
+
+```bash
+pretextannotate \
+    --pretext_file my_pretext.png \
+    --sizes custom_context.tsv \
+    --vertical_label_field INSDC \
+    --prefix MY_SAMPLE \
+    --output ./
+```
+
+Example `molecule_mapping.tsv` (optional):
+
+```tsv
+# sequence_name	molecule_label
+H1.chr01	1
+H1.chr02	2
+H2.chr01	3
+H2.chr02	4
+```
+
+Example generated `custom_context.tsv`:
+
+```tsv
+# INSDC	length_bp	molecule
+H1.chr01	50324412	1
+H1.chr02	48219877	2
+H2.chr01	49910332	3
+H2.chr02	48000741	4
+```
+
 ## Expected output
 
 With the input pretext snapshot:

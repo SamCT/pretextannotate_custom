@@ -21,6 +21,7 @@ dev = [
 
 [project.scripts]
 pretextannotate = "pretextannotate.cli:main"
+pretextannotate-build-context = "pretextannotate.build_context:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

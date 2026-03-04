@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument("-f", "--pretext_file", help="Input pretext PNG file", type=file_validator, required=True)
     parser.add_argument("-p", "--prefix", help="Prefix for the output file", default="default")
     parser.add_argument("-o", "--output", help="Output PNG file", default="./")
-    parser.add_argument("-s", "--sizes", help="Sizes file describing the input genome", type=file_validator)
+    parser.add_argument("-s", "--sizes", help="Sizes/context file describing the input genome", type=file_validator)
 
     # Font Arguments
     data_path = os.path.join(os.path.dirname(__file__), 'fonts', 'OpenSans-Regular.ttf')
